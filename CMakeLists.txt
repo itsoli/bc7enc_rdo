@@ -132,4 +132,9 @@ if(NOT MSVC)
 	target_link_libraries(${BC7ENC_TARGET_BIN} m)
 endif()
 
-add_library(${BC7ENC_TARGET_STATIC} STATIC ${BC7ENC_COMMON_SRC_LIST} ${BC7E_OBJ_LIST})
+add_library(${BC7ENC_TARGET_STATIC} STATIC
+	${BC7ENC_COMMON_SRC_LIST}
+	${BC7E_OBJ_LIST}
+	bc7enc_wrapper.cpp
+	bc7enc_wrapper.h
+	)
