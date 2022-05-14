@@ -1,7 +1,13 @@
 #include "ert.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
+#include <algorithm>
+#include <assert.h>
+#include <time.h>
+#include <vector>
+#include <string>
 #include "utils.h"
 
 #define ERT_FAVOR_CONT_AND_REP0_MATCHES (1)
@@ -9,6 +15,42 @@
 
 namespace ert
 {
+	void clear_params(reduce_entropy_params* params)
+	{
+		if (!params)
+			return;
+
+		params->m_lookback_window_size = 256;
+		params->m_lambda = 1.0f;
+		params->m_max_allowed_rms_increase_ratio = 10.0f;
+		params->m_max_smooth_block_std_dev = 18.0f;
+		params->m_smooth_block_max_mse_scale = 10.0f;
+		params->m_color_weights[0] = 1;
+		params->m_color_weights[1] = 1;
+		params->m_color_weights[2] = 1;
+		params->m_color_weights[3] = 1;
+		params->m_try_two_matches = false;
+		params->m_allow_relative_movement = false;
+		params->m_skip_zero_mse_blocks = false;
+		params->m_debug_output = false;
+	}
+
+	void print_params(const reduce_entropy_params* params)
+	{
+		if (!params)
+			return;
+
+		printf("lambda: %f\n", params->m_lambda);
+		printf("Lookback window size: %u\n", params->m_lookback_window_size);
+		printf("Max allowed RMS increase ratio: %f\n", params->m_max_allowed_rms_increase_ratio);
+		printf("Max smooth block std dev: %f\n", params->m_max_smooth_block_std_dev);
+		printf("Smooth block max MSE scale: %f\n", params->m_smooth_block_max_mse_scale);
+		printf("Color weights: %u %u %u %u\n", params->m_color_weights[0], params->m_color_weights[1], params->m_color_weights[2], params->m_color_weights[3]);
+		printf("Try two matches: %u\n", params->m_try_two_matches);
+		printf("Allow relative movement: %u\n", params->m_allow_relative_movement);
+		printf("Skip zero MSE blocks: %u\n", params->m_skip_zero_mse_blocks);
+	}
+
 	const uint32_t MAX_BLOCK_PIXELS = 12 * 12;
 	const uint32_t MAX_BLOCK_SIZE_IN_BYTES = 256;
 	const uint32_t MIN_MATCH_LEN = 3;
@@ -219,7 +261,7 @@ namespace ert
 		}
 
 		return total_err * (one_over_total_color_weight / total_block_pixels);
-	}	
+	}
 
 	uint32_t hash_hsieh(const uint8_t* pBuf, size_t len, uint32_t salt)
 	{
@@ -280,13 +322,16 @@ namespace ert
 	// BC7 entropy reduction transform with Deflate/LZMA/LZHAM optimizations
 	bool reduce_entropy(void* pBlocks, uint32_t num_blocks,
 		uint32_t total_block_stride_in_bytes, uint32_t block_size_to_optimize_in_bytes, uint32_t block_width, uint32_t block_height, uint32_t num_comps,
-		const color_rgba* pBlock_pixels, const reduce_entropy_params& params, uint32_t& total_modified,
+		const color_rgba* pBlock_pixels, const reduce_entropy_params* params_, uint32_t* total_modified,
 		pUnpack_block_func pUnpack_block_func, void* pUnpack_block_func_user_data,
-		std::vector<float>* pBlock_mse_scales)
+		const float* const* pBlock_mse_scales)
 	{
+		assert(params_);
+		const reduce_entropy_params& params = *params_;
+
 		assert(total_block_stride_in_bytes && block_size_to_optimize_in_bytes);
 		assert(total_block_stride_in_bytes >= block_size_to_optimize_in_bytes);
-		
+
 		assert(num_comps >= 1 && num_comps <= 4);
 		for (uint32_t i = num_comps; i < 4; i++)
 		{
@@ -316,12 +361,12 @@ namespace ert
 		uint32_t total_second_matches = 0;
 
 		int prev_match_window_ofs_to_favor_cont = -1, prev_match_dist_to_favor = -1;
-				
+
 		uint32_t total_smooth_blocks = 0;
 
 		const uint32_t HASH_SIZE = 8192;
 		uint32_t hash[HASH_SIZE];
-				
+
 		for (uint32_t block_index = 0; block_index < num_blocks; block_index++)
 		{
 			if ((block_index & 0xFF) == 0)
@@ -340,7 +385,7 @@ namespace ert
 				continue;
 
 			const float max_std_dev = compute_block_max_std_dev(pPixels, block_width, block_height, num_comps);
-			
+
 			float yl = clampf(max_std_dev / params.m_max_smooth_block_std_dev, 0.0f, 1.0f);
 			yl = yl * yl;
 			float smooth_block_mse_scale = lerp(params.m_smooth_block_max_mse_scale, 1.0f, yl);
@@ -352,10 +397,10 @@ namespace ert
 					smooth_block_mse_scale = (*pBlock_mse_scales)[block_index];
 				}
 			}
-			
+
 			if (smooth_block_mse_scale > 1.0f)
 				total_smooth_blocks++;
-						
+
 			float cur_bits = (LITERAL_BITS * block_size_to_optimize_in_bytes);
 			float cur_t = cur_mse * smooth_block_mse_scale + cur_bits * params.m_lambda;
 
@@ -371,7 +416,7 @@ namespace ert
 
 			// Don't let thresh_ms_err be 0 to let zero error blocks have slightly increased distortion
 			const float thresh_ms_err = params.m_max_allowed_rms_increase_ratio * params.m_max_allowed_rms_increase_ratio * std::max(cur_mse, 1.0f);
-			
+
 			for (int prev_block_index = last_block_to_check; prev_block_index >= first_block_to_check; --prev_block_index)
 			{
 				const uint8_t* pPrev_blk = &pBlock_bytes[prev_block_index * total_block_stride_in_bytes];
@@ -383,17 +428,17 @@ namespace ert
 						for (uint32_t src_ofs = 0; src_ofs <= (block_size_to_optimize_in_bytes - len); src_ofs++)
 						{
 							assert(len + src_ofs <= block_size_to_optimize_in_bytes);
-							
+
 							const uint32_t src_match_window_ofs = prev_block_index * total_block_stride_in_bytes + src_ofs;
 
 							for (uint32_t dst_ofs = 0; dst_ofs <= (block_size_to_optimize_in_bytes - len); dst_ofs++)
 							{
 								assert(len + dst_ofs <= block_size_to_optimize_in_bytes);
-								
+
 								const uint32_t dst_match_window_ofs = block_index * total_block_stride_in_bytes + dst_ofs;
 
 								const uint32_t match_dist = dst_match_window_ofs - src_match_window_ofs;
-																
+
 								float trial_match_bits, trial_total_bits;
 
 								uint32_t hs = hash_hsieh(pPrev_blk + src_ofs, len, dst_ofs);
@@ -415,7 +460,7 @@ namespace ert
 								{
 									trial_match_bits = (float)compute_match_cost_estimate(match_dist, len);
 									trial_total_bits = (block_size_to_optimize_in_bytes - len) * LITERAL_BITS + trial_match_bits;
-										
+
 									uint32_t hash_check = hash[hs & (HASH_SIZE - 1)];
 									if ((hash_check & 0xFF) == (block_index & 0xFF))
 									{
@@ -435,7 +480,7 @@ namespace ert
 								hash[hs & (HASH_SIZE - 1)] = (hs & 0xFFFFFF00) | (block_index & 0xFF);
 
 								const float trial_total_bits_times_lambda = trial_total_bits * params.m_lambda;
-								
+
 								uint8_t trial_block[MAX_BLOCK_SIZE_IN_BYTES];
 								memcpy(trial_block, pOrig_block, block_size_to_optimize_in_bytes);
 								memcpy(trial_block + dst_ofs, pPrev_blk + src_ofs, len);
@@ -478,13 +523,13 @@ namespace ert
 						for (uint32_t ofs = 0; ofs <= (block_size_to_optimize_in_bytes - len); ofs++)
 						{
 							assert(len + ofs <= block_size_to_optimize_in_bytes);
-							
+
 							const uint32_t dst_match_window_ofs = block_index * total_block_stride_in_bytes + ofs;
 							const uint32_t src_match_window_ofs = prev_block_index * total_block_stride_in_bytes + ofs;
 
 							float trial_match_bits_to_use = trial_match_bits;
 							float trial_total_bits_times_lambda_to_use = trial_total_bits_times_lambda;
-														
+
 							uint32_t hs = hash_hsieh(pPrev_blk + ofs, len, ofs);
 
 #if ERT_FAVOR_CONT_AND_REP0_MATCHES
@@ -535,7 +580,7 @@ namespace ert
 							if (trial_mse < thresh_ms_err)
 							{
 								float t = trial_mse * smooth_block_mse_scale + trial_total_bits_times_lambda_to_use;
-								
+
 								if (t < best_t)
 								{
 									best_t = t;
@@ -558,7 +603,7 @@ namespace ert
 			if (best_t < cur_t)
 			{
 				uint32_t best_second_match_len = 0, best_second_match_src_window_ofs = 0, best_second_match_dst_window_ofs = 0, best_second_match_src_block_ofs = 0, best_second_match_dst_block_ofs = 0;
-								
+
 				// Try injecting a second match, being sure it does't overlap with the first.
 				if ((params.m_try_two_matches) && (best_match_len <= (block_size_to_optimize_in_bytes - 3)))
 				{
@@ -568,7 +613,7 @@ namespace ert
 
 					uint8_t orig_best_block[MAX_BLOCK_SIZE_IN_BYTES];
 					memcpy(orig_best_block, best_block, block_size_to_optimize_in_bytes);
-										
+
 					for (int prev_block_index = last_block_to_check; prev_block_index >= first_block_to_check; --prev_block_index)
 					{
 						const uint8_t* pPrev_blk = &pBlock_bytes[prev_block_index * total_block_stride_in_bytes];
@@ -626,7 +671,8 @@ namespace ert
 				}
 
 				memcpy(pOrig_block, best_block, block_size_to_optimize_in_bytes);
-				total_modified++;
+				if (total_modified)
+					(*total_modified)++;
 
 				if ((best_second_match_len == 0) || (best_match_dst_window_ofs > best_second_match_dst_window_ofs))
 				{
@@ -681,9 +727,9 @@ namespace ert
 			{
 				prev_match_window_ofs_to_favor_cont = -1;
 			}
-						
+
 		} // block_index
-				
+
 		if (params.m_debug_output)
 		{
 			printf("Total smooth blocks: %3.2f%%\n", total_smooth_blocks * 100.0f / num_blocks);
@@ -697,7 +743,7 @@ namespace ert
 			for (uint32_t i = MIN_MATCH_LEN; i <= block_size_to_optimize_in_bytes; i++)
 				printf("%u%c", second_len_hist[i], (i < block_size_to_optimize_in_bytes) ? ',' : '\n');
 		}
-		
+
 		return true;
 	}
 

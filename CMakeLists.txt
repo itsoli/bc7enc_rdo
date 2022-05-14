@@ -105,6 +105,7 @@ set(BC7ENC_COMMON_SRC_LIST
 	bc7decomp.h
 	rgbcx.cpp
 	rgbcx.h
+	rgbcx_rdo.h
 	rgbcx_table4.h
 	rgbcx_table4_small.h
 	utils.cpp

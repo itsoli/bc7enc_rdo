@@ -390,7 +390,7 @@ namespace rdo_bc
 			printf("  Use HQ BC345: %u\n", m_params.m_use_hq_bc345);
 			printf("  BC345 search radius: %u\n", m_params.m_bc345_search_rad);
 			printf("  BC345 mode mask: 0x%X\n", m_params.m_bc345_mode_mask);
-			
+
 			printf("BC7 parameters:\n");
 			printf("  Use bc7e: %u\n", m_params.m_use_bc7e);
 			printf("  BC7 uber level: %u\n", m_params.m_bc7_uber_level);
@@ -406,7 +406,7 @@ namespace rdo_bc
 			printf("  Allow relative movement: %u\n", m_params.m_rdo_allow_relative_movement);
 			printf("  Ultrasmooth block handling: %u\n", m_params.m_rdo_ultrasmooth_block_handling);
 			printf("  Multithreading: %u, max threads: %u\n", m_params.m_rdo_multithreading, m_params.m_rdo_max_threads);
-			
+
 			printf("bc7enc parameters:\n");
 			printf("  Mode 6 only: %u\n", m_params.m_bc7enc_mode6_only);
 			printf("  Max partitions to scan: %u\n", m_params.m_bc7enc_max_partitions_to_scan);
@@ -483,7 +483,7 @@ namespace rdo_bc
 				}
 			}
 		}
-				
+
 		if (m_pixel_format_bpp == 8)
 			m_packed_image16.resize(m_total_blocks);
 		else
@@ -491,7 +491,7 @@ namespace rdo_bc
 
 		return true;
 	}
-		
+
 	bool rdo_bc_encoder::encode_texture()
 	{
 		clock_t start_t = clock();
@@ -689,6 +689,7 @@ namespace rdo_bc
 		assert(!blocks_remaining && cur_block_index == (int)m_total_blocks);
 
 		ert::reduce_entropy_params ert_p;
+		ert::clear_params(&ert_p);
 
 		ert_p.m_lambda = m_params.m_rdo_lambda;
 		ert_p.m_lookback_window_size = m_params.m_lookback_window_size;
@@ -698,7 +699,7 @@ namespace rdo_bc
 		ert_p.m_try_two_matches = m_params.m_rdo_try_2_matches;
 		ert_p.m_allow_relative_movement = m_params.m_rdo_allow_relative_movement;
 		ert_p.m_skip_zero_mse_blocks = false;
-		
+
 		std::vector<float> block_rgb_mse_scales(compute_block_mse_scales(m_source_image, m_blocks_x, m_blocks_y, m_total_blocks, m_params.m_rdo_debug_output));
 
 		std::vector<rgbcx::color32> block_pixels(m_total_blocks * 16);
@@ -740,7 +741,7 @@ namespace rdo_bc
 			if (m_params.m_status_output)
 			{
 				printf("\nERT parameters:\n");
-				ert_p.print();
+				ert::print_params(&ert_p);
 				printf("\n");
 			}
 
@@ -761,12 +762,13 @@ namespace rdo_bc
 				std::vector<float> local_block_rgb_mse_scales(num_blocks_to_encode);
 				for (int i = 0; i < num_blocks_to_encode; i++)
 					local_block_rgb_mse_scales[i] = block_rgb_mse_scales[first_block_to_encode + i];
+				const float* local_block_rgb_mse_scales_data = local_block_rgb_mse_scales.data();
 
 				ert::reduce_entropy(&m_packed_image16[first_block_to_encode], num_blocks_to_encode,
 					16, 16, 4, 4, NUM_COMPONENTS,
-					(ert::color_rgba*)&block_pixels[16 * first_block_to_encode], ert_p, total_modified_local,
+					(ert::color_rgba*)&block_pixels[16 * first_block_to_encode], &ert_p, &total_modified_local,
 					unpacker_funcs::unpack_bc7_block, &block_unpackers,
-					m_params.m_rdo_ultrasmooth_block_handling ? &local_block_rgb_mse_scales : nullptr);
+					m_params.m_rdo_ultrasmooth_block_handling ? &local_block_rgb_mse_scales_data : nullptr);
 
 #pragma omp critical
 				{
@@ -856,7 +858,7 @@ namespace rdo_bc
 			if (m_params.m_status_output)
 			{
 				printf("\nERT parameters:\n");
-				ert_p.print();
+				ert::print_params(&ert_p);
 				printf("\n");
 			}
 
@@ -876,12 +878,12 @@ namespace rdo_bc
 
 				ert::reduce_entropy(&m_packed_image16[first_block_to_encode], num_blocks_to_encode,
 					2 * sizeof(rgbcx::bc4_block), sizeof(rgbcx::bc4_block), 4, 4, NUM_COMPONENTS,
-					(ert::color_rgba*)&block_pixels_r[16 * first_block_to_encode], ert_p, total_modified_local_r,
+					(ert::color_rgba*)&block_pixels_r[16 * first_block_to_encode], &ert_p, &total_modified_local_r,
 					unpacker_funcs::unpack_bc4_block, &block_unpackers);
 
 				ert::reduce_entropy((uint8_t*)&m_packed_image16[first_block_to_encode] + sizeof(rgbcx::bc4_block), num_blocks_to_encode,
 					2 * sizeof(rgbcx::bc4_block), sizeof(rgbcx::bc4_block), 4, 4, NUM_COMPONENTS,
-					(ert::color_rgba*)&block_pixels_g[16 * first_block_to_encode], ert_p, total_modified_local_g,
+					(ert::color_rgba*)&block_pixels_g[16 * first_block_to_encode], &ert_p, &total_modified_local_g,
 					unpacker_funcs::unpack_bc4_block, &block_unpackers);
 
 #pragma omp critical
@@ -924,7 +926,7 @@ namespace rdo_bc
 			if (m_params.m_status_output)
 			{
 				printf("\nERT parameters:\n");
-				ert_p.print();
+				ert::print_params(&ert_p);
 				printf("\n");
 			}
 
@@ -944,7 +946,7 @@ namespace rdo_bc
 
 				ert::reduce_entropy(&m_packed_image8[first_block_to_encode], num_blocks_to_encode,
 					sizeof(rgbcx::bc4_block), sizeof(rgbcx::bc4_block), 4, 4, NUM_COMPONENTS,
-					(ert::color_rgba*)&block_pixels[16 * first_block_to_encode], ert_p, total_modified_local,
+					(ert::color_rgba*)&block_pixels[16 * first_block_to_encode], &ert_p, &total_modified_local,
 					unpacker_funcs::unpack_bc4_block, &block_unpackers);
 
 #pragma omp critical
@@ -987,7 +989,7 @@ namespace rdo_bc
 				}
 
 			printf("\nERT parameters:\n");
-			ert_p.print();
+			ert::print_params(&ert_p);
 			printf("\n");
 
 			uint32_t total_modified = 0;
@@ -1007,12 +1009,13 @@ namespace rdo_bc
 				std::vector<float> local_block_rgb_mse_scales(num_blocks_to_encode);
 				for (int i = 0; i < num_blocks_to_encode; i++)
 					local_block_rgb_mse_scales[i] = block_rgb_mse_scales[first_block_to_encode + i];
+				const float* local_block_rgb_mse_scales_data = local_block_rgb_mse_scales.data();
 
 				ert::reduce_entropy(&m_packed_image8[first_block_to_encode], num_blocks_to_encode,
 					sizeof(rgbcx::bc1_block), sizeof(rgbcx::bc1_block), 4, 4, NUM_COMPONENTS,
-					(ert::color_rgba*)&block_pixels[16 * first_block_to_encode], ert_p, total_modified_local,
+					(ert::color_rgba*)&block_pixels[16 * first_block_to_encode], &ert_p, &total_modified_local,
 					unpacker_funcs::unpack_bc1_block, &block_unpackers,
-					m_params.m_rdo_ultrasmooth_block_handling ? &local_block_rgb_mse_scales : nullptr);
+					m_params.m_rdo_ultrasmooth_block_handling ? &local_block_rgb_mse_scales_data : nullptr);
 
 #pragma omp critical
 				{
@@ -1083,10 +1086,10 @@ namespace rdo_bc
 			if (m_params.m_status_output)
 			{
 				printf("\nERT RGB parameters:\n");
-				ert_p.print();
+				ert::print_params(&ert_p);
 
 				printf("\nERT Alpha parameters:\n");
-				ert_alpha_p.print();
+				ert::print_params(&ert_alpha_p);
 				printf("\n");
 			}
 
@@ -1109,18 +1112,19 @@ namespace rdo_bc
 
 				ert::reduce_entropy((uint8_t*)&m_packed_image16[first_block_to_encode], num_blocks_to_encode,
 					sizeof(rgbcx::bc1_block) * 2, sizeof(rgbcx::bc4_block), 4, 4, 1,
-					(ert::color_rgba*)&block_pixels_a[16 * first_block_to_encode], ert_alpha_p, total_modified_local_alpha,
+					(ert::color_rgba*)&block_pixels_a[16 * first_block_to_encode], &ert_alpha_p, &total_modified_local_alpha,
 					unpacker_funcs::unpack_bc4_block, &block_unpackers);
 
 				std::vector<float> local_block_rgb_mse_scales(num_blocks_to_encode);
 				for (int i = 0; i < num_blocks_to_encode; i++)
 					local_block_rgb_mse_scales[i] = block_rgb_mse_scales[first_block_to_encode + i];
+				const float* local_block_rgb_mse_scales_data = local_block_rgb_mse_scales.data();
 
 				ert::reduce_entropy((uint8_t*)&m_packed_image16[first_block_to_encode] + sizeof(rgbcx::bc1_block), num_blocks_to_encode,
 					sizeof(rgbcx::bc1_block) * 2, sizeof(rgbcx::bc1_block), 4, 4, 3,
-					(ert::color_rgba*)&block_pixels[16 * first_block_to_encode], ert_p, total_modified_local_rgb,
+					(ert::color_rgba*)&block_pixels[16 * first_block_to_encode], &ert_p, &total_modified_local_rgb,
 					unpacker_funcs::unpack_bc1_block, &block_unpackers,
-					m_params.m_rdo_ultrasmooth_block_handling ? &local_block_rgb_mse_scales : nullptr);
+					m_params.m_rdo_ultrasmooth_block_handling ? &local_block_rgb_mse_scales_data : nullptr);
 
 #pragma omp critical
 				{
@@ -1151,7 +1155,7 @@ namespace rdo_bc
 		bool used_bc1_transparent_texels_for_black = false;
 
 		bool unpack_failed = false;
-				
+
 #pragma omp parallel for
 		for (int by = 0; by < (int)get_blocks_y(); by++)
 		{

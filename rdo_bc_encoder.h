@@ -10,6 +10,7 @@
 
 #include "bc7decomp.h"
 #include "rgbcx.h"
+#include "rgbcx_rdo.h"
 
 #include "bc7enc.h"
 
@@ -42,7 +43,7 @@ namespace rdo_bc
 			m_use_bc1_3color_mode = true;
 
 			// We're just turning this on by default now, like NVDXT.EXE used to do back in the old original Xbox days.
-			m_use_bc1_3color_mode_for_black = true; // false; 
+			m_use_bc1_3color_mode_for_black = true; // false;
 
 			m_bc1_quality_level = rgbcx::MAX_LEVEL;
 
@@ -79,9 +80,9 @@ namespace rdo_bc
 			// https://richg42.blogspot.com/2021/02/average-rate-distortion-curves-for.html
 			m_use_bc7e = true;
 #endif
-						
+
 			m_status_output = false;
-			
+
 			m_rdo_max_threads = 128;
 		}
 
@@ -127,7 +128,7 @@ namespace rdo_bc
 
 		bool m_use_bc7e;
 		bool m_status_output;
-		
+
 		uint32_t m_rdo_max_threads;
 	};
 
@@ -163,7 +164,7 @@ namespace rdo_bc
 		uint32_t get_pixel_format_bpp() const { return m_pixel_format_bpp; }
 		uint32_t get_total_texels() const { return m_total_texels; }
 		bool get_has_alpha() const { return m_has_alpha; }
-								
+
 	private:
 		const utils::image_u8* m_pOrig_source_image;
 		utils::image_u8 m_source_image;
@@ -246,5 +247,5 @@ namespace rdo_bc
 
 		bool postprocess_rdo();
 	};
-		
+
 } // namespace rdo_bc

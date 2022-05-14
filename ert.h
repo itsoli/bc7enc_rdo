@@ -1,14 +1,6 @@
 #pragma once
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include <algorithm>
-#include <assert.h>
-#include <time.h>
-#include <vector>
-#include <string>
 
 namespace ert
 {
@@ -30,52 +22,23 @@ namespace ert
 		float m_smooth_block_max_mse_scale;
 
 		uint32_t m_color_weights[4];
-				
+
 		bool m_try_two_matches;
 		bool m_allow_relative_movement;
 		bool m_skip_zero_mse_blocks;
 		bool m_debug_output;
-
-		reduce_entropy_params() { clear(); }
-
-		void clear()
-		{
-			m_lookback_window_size = 256;
-			m_lambda = 1.0f;
-			m_max_allowed_rms_increase_ratio = 10.0f;
-			m_max_smooth_block_std_dev = 18.0f;
-			m_smooth_block_max_mse_scale = 10.0f;
-			m_color_weights[0] = 1;
-			m_color_weights[1] = 1;
-			m_color_weights[2] = 1;
-			m_color_weights[3] = 1;
-			m_try_two_matches = false;
-			m_allow_relative_movement = false;
-			m_skip_zero_mse_blocks = false;
-			m_debug_output = false;
-		}
-
-		void print()
-		{
-			printf("lambda: %f\n", m_lambda);
-			printf("Lookback window size: %u\n", m_lookback_window_size);
-			printf("Max allowed RMS increase ratio: %f\n", m_max_allowed_rms_increase_ratio);
-			printf("Max smooth block std dev: %f\n", m_max_smooth_block_std_dev);
-			printf("Smooth block max MSE scale: %f\n", m_smooth_block_max_mse_scale);
-			printf("Color weights: %u %u %u %u\n", m_color_weights[0], m_color_weights[1], m_color_weights[2], m_color_weights[3]);
-			printf("Try two matches: %u\n", m_try_two_matches);
-			printf("Allow relative movement: %u\n", m_allow_relative_movement);
-			printf("Skip zero MSE blocks: %u\n", m_skip_zero_mse_blocks);
-		}
 	};
+
+	void clear_params(reduce_entropy_params* params);
+	void print_params(const reduce_entropy_params* params);
 
 	typedef bool (*pUnpack_block_func)(const void* pBlock, color_rgba* pPixels, uint32_t block_index, void* pUser_data);
 
 	// BC7 entropy reduction transform with Deflate/LZMA/LZHAM optimizations
 	bool reduce_entropy(void* pBlocks, uint32_t num_blocks,
 		uint32_t total_block_stride_in_bytes, uint32_t block_size_to_optimize_in_bytes, uint32_t block_width, uint32_t block_height, uint32_t num_comps,
-		const color_rgba* pBlock_pixels, const reduce_entropy_params& params, uint32_t& total_modified,
+		const color_rgba* pBlock_pixels, const reduce_entropy_params* params, uint32_t* total_modified,
 		pUnpack_block_func pUnpack_block_func, void* pUnpack_block_func_user_data,
-		std::vector<float>* pBlock_mse_scales = nullptr);
+		const float* const* pBlock_mse_scales = 0);
 
 } // namespace ert

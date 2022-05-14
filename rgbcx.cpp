@@ -1,5 +1,7 @@
 // rgbcx.cpp - see license at end of rgbcx.h
 #include "rgbcx.h"
+#include "rgbcx_rdo.h"
+#include <assert.h>
 #include <string.h>
 #include <math.h>
 #include <vector>
@@ -2787,7 +2789,7 @@ namespace rgbcx
 					assert(!pBlock->is_alpha6_block());
 				}
 			}
-#endif			
+#endif
 
 			return 0;
 		}
@@ -3076,8 +3078,5 @@ namespace rgbcx
 		unpack_bc4(pBlock_bits, (uint8_t*)pPixels + chan0, stride);
 		unpack_bc4((const uint8_t*)pBlock_bits + sizeof(bc4_block), (uint8_t*)pPixels + chan1, stride);
 	}
-		
+
 } // namespace rgbcx
-
-
-
