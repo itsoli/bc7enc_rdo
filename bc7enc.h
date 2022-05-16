@@ -9,18 +9,16 @@
 #define BC7ENC_MAX_PARTITIONS (64)
 #define BC7ENC_MAX_UBER_LEVEL (4)
 
-struct color_rgba { uint8_t m_c[4]; };
-
 struct bc7enc_compress_block_params
 {
 	uint32_t m_mode_mask;
 
 	// m_max_partitions may range from 0 (disables mode 1) to BC7ENC_MAX_PARTITIONS. The higher this value, the slower the compressor, but the higher the quality.
 	uint32_t m_max_partitions;
-	
+
 	// Relative RGBA or YCbCrA weights.
 	uint32_t m_weights[4];
-	
+
 	// m_uber_level may range from 0 to BC7ENC_MAX_UBER_LEVEL. The higher this value, the slower the compressor, but the higher the quality.
 	uint32_t m_uber_level;
 
@@ -29,7 +27,7 @@ struct bc7enc_compress_block_params
 
 	// Set m_try_least_squares to false for slightly faster/lower quality compression.
 	bool m_try_least_squares;
-	
+
 	// When m_mode17_partition_estimation_filterbank, the mode1 partition estimator skips lesser used partition patterns unless they are strongly predicted to be potentially useful.
 	// There's a slight loss in quality with this enabled (around .08 dB RGB PSNR or .05 dB Y PSNR), but up to a 11% gain in speed depending on the other settings.
 	bool m_mode17_partition_estimation_filterbank;
@@ -50,29 +48,29 @@ struct bc7enc_compress_block_params
 	float m_mode7_error_weight;
 
 	float m_low_frequency_partition_weight;
-
-	void clear()
-	{
-		memset(this, 0, sizeof(*this));
-	}
-
-	void print()
-	{
-		printf("Mode mask: 0x%X\n", m_mode_mask);
-		printf("Max partitions: %u\n", m_max_partitions);
-		printf("Weights: %u %u %u %u\n", m_weights[0], m_weights[1], m_weights[2], m_weights[3]);
-		printf("Uber level: %u\n", m_uber_level);
-		printf("Perceptual: %u\n", m_perceptual);
-		printf("Try least squares: %u\n", m_try_least_squares);
-		printf("Mode 1/7 partition estimation filterbank: %u\n", m_mode17_partition_estimation_filterbank);
-		printf("Force alpha: %u\n", m_force_alpha);
-		printf("Quant mode 6 endpoints: %u\n", m_quant_mode6_endpoints);
-		printf("Bias mode 1 p-bits: %u\n", m_bias_mode1_pbits);
-		printf("p-bit 1 weight: %f\n", m_pbit1_weight);
-		printf("Mode error weights: %f %f %f %f\n", m_mode1_error_weight, m_mode5_error_weight, m_mode6_error_weight, m_mode7_error_weight);
-		printf("Low frequency partition weight: %f\n", m_low_frequency_partition_weight);
-	}
 };
+
+void bc7enc_compress_block_params_clear(bc7enc_compress_block_params *p)
+{
+	memset(p, 0, sizeof(*p));
+}
+
+void bc7enc_compress_block_params_print(const bc7enc_compress_block_params *p)
+{
+	printf("Mode mask: 0x%X\n", p->m_mode_mask);
+	printf("Max partitions: %u\n", p->m_max_partitions);
+	printf("Weights: %u %u %u %u\n", p->m_weights[0], p->m_weights[1], p->m_weights[2], p->m_weights[3]);
+	printf("Uber level: %u\n", p->m_uber_level);
+	printf("Perceptual: %u\n", p->m_perceptual);
+	printf("Try least squares: %u\n", p->m_try_least_squares);
+	printf("Mode 1/7 partition estimation filterbank: %u\n", p->m_mode17_partition_estimation_filterbank);
+	printf("Force alpha: %u\n", p->m_force_alpha);
+	printf("Quant mode 6 endpoints: %u\n", p->m_quant_mode6_endpoints);
+	printf("Bias mode 1 p-bits: %u\n", p->m_bias_mode1_pbits);
+	printf("p-bit 1 weight: %f\n", p->m_pbit1_weight);
+	printf("Mode error weights: %f %f %f %f\n", p->m_mode1_error_weight, p->m_mode5_error_weight, p->m_mode6_error_weight, p->m_mode7_error_weight);
+	printf("Low frequency partition weight: %f\n", p->m_low_frequency_partition_weight);
+}
 
 inline void bc7enc_compress_block_params_init_linear_weights(bc7enc_compress_block_params *p)
 {
@@ -119,5 +117,3 @@ void bc7enc_compress_block_init();
 // Alpha blocks will always use mode 6, and by default opaque blocks will use either modes 1 or 6.
 // Returns true if the block had any pixels with alpha < 255, otherwise it return false. (This is not an error code - a block is always encoded.)
 bool bc7enc_compress_block(void *pBlock, const void *pPixelsRGBA, const bc7enc_compress_block_params *pComp_params);
-
-

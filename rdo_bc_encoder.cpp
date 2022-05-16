@@ -214,7 +214,7 @@ namespace rdo_bc
 		m_prerdo_packed_image8.clear();
 		m_prerdo_packed_image16.clear();
 
-		m_bc7enc_pack_params.clear();
+		bc7enc_compress_block_params_clear(&m_bc7enc_pack_params);
 #if SUPPORT_BC7E
 		memset(&m_bc7e_pack_params, 0, sizeof(m_bc7e_pack_params));
 #endif
@@ -361,7 +361,7 @@ namespace rdo_bc
 				else
 				{
 					printf("\nbc7enc parameters:\n");
-					m_bc7enc_pack_params.print();
+					bc7enc_compress_block_params_print(&m_bc7enc_pack_params);
 				}
 			}
 			else
