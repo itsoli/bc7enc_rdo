@@ -91,7 +91,6 @@ add_library(${BC7ENC_TARGET_STATIC} STATIC
 	rgbcx_rdo.h
 	rgbcx_table4.h
 	rgbcx_table4_small.h
-	dds_defs.h
 	ert.cpp
 	ert.h
 	bc7e.ispc
@@ -103,6 +102,7 @@ if(${CLI})
 		lodepng.cpp
 		lodepng.h
 		miniz.h
+		dds_defs.h
 		utils.cpp
 		utils.h
 		rdo_bc_encoder.cpp
