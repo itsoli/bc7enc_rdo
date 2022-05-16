@@ -1,5 +1,9 @@
 // File: bc7decomp.c - Richard Geldreich, Jr. 3/31/2020 - MIT license or public domain (see end of file)
-#include "bc7decomp.h"
+// #include "bc7decomp.h"
+#include <stdlib.h>
+#include <stdint.h>
+#include <algorithm>
+#include <assert.h>
 #include <string.h>
 
 #if (defined(_M_AMD64) || defined(_M_X64) || defined(__SSE2__))
@@ -13,6 +17,27 @@
 
 namespace bc7decomp
 {
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4201) //  nonstandard extension used: nameless struct/union
+#endif
+
+union color_rgba
+{
+	uint8_t m_comps[4];
+
+	struct
+	{
+		uint8_t r;
+		uint8_t g;
+		uint8_t b;
+		uint8_t a;
+	};
+
+	inline const uint8_t &operator[] (uint32_t index) const { assert(index < 4); return m_comps[index]; }
+	inline uint8_t &operator[] (uint32_t index) { assert(index < 4); return m_comps[index]; }
+};
 
 #ifdef BC7DECOMP_USE_SSE2
 	const __m128i g_bc7_weights4_sse2[8] =
@@ -113,7 +138,7 @@ static inline uint32_t bc7_interp(uint32_t l, uint32_t h, uint32_t w, uint32_t b
 	case 2: return bc7_interp2(l, h, w);
 	case 3: return bc7_interp3(l, h, w);
 	case 4: return bc7_interp4(l, h, w);
-	default: 
+	default:
 		break;
 	}
 	return 0;
@@ -175,7 +200,9 @@ bool unpack_bc7_mode0_2(uint32_t mode, const uint64_t* data_chunks, color_rgba* 
 	const uint32_t ENDPOINT_BITS = (mode == 0) ? 4 : 5;
 	const uint32_t ENDPOINT_MASK = (1 << ENDPOINT_BITS) - 1;
 	const uint32_t PBITS = (mode == 0) ? 6 : 0;
+#ifndef BC7DECOMP_USE_SSE2
 	const uint32_t WEIGHT_VALS = 1 << WEIGHT_BITS;
+#endif
 	const uint32_t PART_BITS = (mode == 0) ? 4 : 6;
 	const uint32_t PART_MASK = (1 << PART_BITS) - 1;
 
@@ -272,7 +299,9 @@ bool unpack_bc7_mode1_3_7(uint32_t mode, const uint64_t* data_chunks, color_rgba
 	const uint32_t ENDPOINT_MASK = (1 << ENDPOINT_BITS) - 1;
 	const uint32_t PBITS = (mode == 1) ? 2 : 4;
 	const uint32_t SHARED_PBITS = (mode == 1) ? true : false;
+#ifndef BC7DECOMP_USE_SSE2
 	const uint32_t WEIGHT_VALS = 1 << WEIGHT_BITS;
+#endif
 
 	const uint64_t low_chunk = data_chunks[0];
 	const uint64_t high_chunk = data_chunks[1];
@@ -320,7 +349,7 @@ bool unpack_bc7_mode1_3_7(uint32_t mode, const uint64_t* data_chunks, color_rgba
 			channel_read_chunk >>= ENDPOINT_BITS;
 		}
 	}
-		
+
 	uint32_t pbits[4];
 	for (uint32_t p = 0; p < PBITS; p++)
 		pbits[p] = (p_read_chunk >> p) & 1;
@@ -338,7 +367,7 @@ bool unpack_bc7_mode1_3_7(uint32_t mode, const uint64_t* data_chunks, color_rgba
 	for (uint32_t e = 0; e < ENDPOINTS; e++)
 		for (uint32_t c = 0; c < 4; c++)
 			endpoints[e][c] = static_cast<uint8_t>((mode != 7U && c == 3U) ? 255 : bc7_dequant(endpoints[e][c], pbits[SHARED_PBITS ? (e >> 1) : e], ENDPOINT_BITS));
-		
+
 	color_rgba block_colors[2][8];
 #ifdef BC7DECOMP_USE_SSE2
 	for (uint32_t s = 0; s < 2; s++)
@@ -591,8 +620,9 @@ bool unpack_bc7_mode6(const void *pBlock_bits, color_rgba *pPixels)
 	return true;
 }
 
-bool unpack_bc7(const void *pBlock, color_rgba *pPixels)
+bool unpack_bc7(const void *pBlock, void *pPixels_)
 {
+	color_rgba* pPixels = static_cast<color_rgba*>(pPixels_);
 	const uint8_t *block_bytes = static_cast<const uint8_t*>(pBlock);
 	uint8_t mode = g_bc7_first_byte_to_mode[block_bytes[0]];
 
@@ -676,4 +706,3 @@ ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ------------------------------------------------------------------------------
 */
-

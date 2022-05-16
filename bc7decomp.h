@@ -1,19 +1,20 @@
 #pragma once
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4201) //  nonstandard extension used: nameless struct/union
-#endif
+// #ifdef _MSC_VER
+// #pragma warning(push)
+// #pragma warning(disable:4201) //  nonstandard extension used: nameless struct/union
+// #endif
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <algorithm>
-#include <math.h>
-#include <assert.h>
+// #include <stdlib.h>
+// #include <stdint.h>
+// #include <algorithm>
+// #include <math.h>
+// #include <assert.h>
 
-namespace bc7decomp 
+namespace bc7decomp
 {
 
+#if 0
 enum eNoClamp { cNoClamp };
 
 template <typename S> inline S clamp(S value, S low, S high) { return (value < low) ? low : ((value > high) ? high : value); }
@@ -122,7 +123,7 @@ public:
 
 	inline const uint8_t &operator[] (uint32_t index) const { assert(index < 4); return m_comps[index]; }
 	inline uint8_t &operator[] (uint32_t index) { assert(index < 4); return m_comps[index]; }
-		
+
 	inline void clear()
 	{
 		m_comps[0] = 0;
@@ -158,20 +159,21 @@ public:
 	}
 
 	inline int get_601_luma() const { return (19595U * m_comps[0] + 38470U * m_comps[1] + 7471U * m_comps[2] + 32768U) >> 16U; }
-	inline int get_709_luma() const { return (13938U * m_comps[0] + 46869U * m_comps[1] + 4729U * m_comps[2] + 32768U) >> 16U; } 
+	inline int get_709_luma() const { return (13938U * m_comps[0] + 46869U * m_comps[1] + 4729U * m_comps[2] + 32768U) >> 16U; }
 	inline int get_luma(bool luma_601) const { return luma_601 ? get_601_luma() : get_709_luma(); }
 
 	static color_rgba comp_min(const color_rgba& a, const color_rgba& b) { return color_rgba(std::min(a[0], b[0]), std::min(a[1], b[1]), std::min(a[2], b[2]), std::min(a[3], b[3])); }
 	static color_rgba comp_max(const color_rgba& a, const color_rgba& b) { return color_rgba(std::max(a[0], b[0]), std::max(a[1], b[1]), std::max(a[2], b[2]), std::max(a[3], b[3])); }
 };
+#endif
 
-bool unpack_bc7(const void *pBlock, color_rgba *pPixels);
+bool unpack_bc7(const void *pBlock, void *pPixels);
 
 } // namespace bc7decomp
 
 namespace bc7decomp_ref
 {
-	bool unpack_bc7(const void* pBlock, bc7decomp::color_rgba* pPixels);
+	bool unpack_bc7(const void* pBlock, void* pPixels);
 } // namespace bc7decomp_ref
 
 #ifdef _MSC_VER

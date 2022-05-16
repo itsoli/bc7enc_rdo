@@ -1,10 +1,35 @@
 // File: bc7decomp.c - Richard Geldreich, Jr. 3/31/2020 - MIT license or public domain (see end of file)
-#include "bc7decomp.h"
+// #include "bc7decomp.h"
+#include <stdlib.h>
+#include <stdint.h>
+#include <algorithm>
+#include <assert.h>
 
-using namespace bc7decomp;
+// using namespace bc7decomp;
 
 namespace bc7decomp_ref
 {
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4201) //  nonstandard extension used: nameless struct/union
+#endif
+
+union color_rgba
+{
+	uint8_t m_comps[4];
+
+	struct
+	{
+		uint8_t r;
+		uint8_t g;
+		uint8_t b;
+		uint8_t a;
+	};
+
+	inline const uint8_t &operator[] (uint32_t index) const { assert(index < 4); return m_comps[index]; }
+	inline uint8_t &operator[] (uint32_t index) { assert(index < 4); return m_comps[index]; }
+};
 
 const uint32_t g_bc7_weights2[4] = { 0, 21, 43, 64 };
 const uint32_t g_bc7_weights3[8] = { 0, 9, 18, 27, 37, 46, 55, 64 };
@@ -86,12 +111,12 @@ static inline uint32_t bc7_interp(uint32_t l, uint32_t h, uint32_t w, uint32_t b
 	case 2: return bc7_interp2(l, h, w);
 	case 3: return bc7_interp3(l, h, w);
 	case 4: return bc7_interp4(l, h, w);
-	default: 
+	default:
 		break;
 	}
 	return 0;
 }
-		
+
 bool unpack_bc7_mode0_2(uint32_t mode, const void* pBlock_bits, color_rgba* pPixels)
 {
 	//const uint32_t SUBSETS = 3;
@@ -101,7 +126,7 @@ bool unpack_bc7_mode0_2(uint32_t mode, const void* pBlock_bits, color_rgba* pPix
 	const uint32_t ENDPOINT_BITS = (mode == 0) ? 4 : 5;
 	const uint32_t PBITS = (mode == 0) ? 6 : 0;
 	const uint32_t WEIGHT_VALS = 1 << WEIGHT_BITS;
-		
+
 	uint32_t bit_offset = 0;
 	const uint8_t* pBuf = static_cast<const uint8_t*>(pBlock_bits);
 
@@ -153,7 +178,7 @@ bool unpack_bc7_mode1_3_7(uint32_t mode, const void* pBlock_bits, color_rgba* pP
 	const uint32_t PBITS = (mode == 1) ? 2 : 4;
 	const uint32_t SHARED_PBITS = (mode == 1) ? true : false;
 	const uint32_t WEIGHT_VALS = 1 << WEIGHT_BITS;
-		
+
 	uint32_t bit_offset = 0;
 	const uint8_t* pBuf = static_cast<const uint8_t*>(pBlock_bits);
 
@@ -165,21 +190,21 @@ bool unpack_bc7_mode1_3_7(uint32_t mode, const void* pBlock_bits, color_rgba* pP
 	for (uint32_t c = 0; c < COMPS; c++)
 		for (uint32_t e = 0; e < ENDPOINTS; e++)
 			endpoints[e][c] = (uint8_t)read_bits32(pBuf, bit_offset, ENDPOINT_BITS);
-		
+
 	uint32_t pbits[4];
 	for (uint32_t p = 0; p < PBITS; p++)
 		pbits[p] = read_bits32(pBuf, bit_offset, 1);
-						
+
 	uint32_t weights[16];
 	for (uint32_t i = 0; i < 16; i++)
 		weights[i] = read_bits32(pBuf, bit_offset, ((!i) || (i == g_bc7_table_anchor_index_second_subset[part])) ? (WEIGHT_BITS - 1) : WEIGHT_BITS);
-		
+
 	assert(bit_offset == 128);
 
 	for (uint32_t e = 0; e < ENDPOINTS; e++)
 		for (uint32_t c = 0; c < 4; c++)
 			endpoints[e][c] = (uint8_t)((c == ((mode == 7U) ? 4U : 3U)) ? 255 : bc7_dequant(endpoints[e][c], pbits[SHARED_PBITS ? (e >> 1) : e], ENDPOINT_BITS));
-		
+
 	color_rgba block_colors[2][8];
 	for (uint32_t s = 0; s < 2; s++)
 		for (uint32_t i = 0; i < WEIGHT_VALS; i++)
@@ -218,11 +243,11 @@ bool unpack_bc7_mode4_5(uint32_t mode, const void* pBlock_bits, color_rgba* pPix
 	for (uint32_t c = 0; c < COMPS; c++)
 		for (uint32_t e = 0; e < ENDPOINTS; e++)
 			endpoints[e][c] = (uint8_t)read_bits32(pBuf, bit_offset, (c == 3) ? A_ENDPOINT_BITS : ENDPOINT_BITS);
-		
+
 	const uint32_t weight_bits[2] = { index_mode ? A_WEIGHT_BITS : WEIGHT_BITS,  index_mode ? WEIGHT_BITS : A_WEIGHT_BITS };
-		
+
 	uint32_t weights[16], a_weights[16];
-		
+
 	for (uint32_t i = 0; i < 16; i++)
 		(index_mode ? a_weights : weights)[i] = read_bits32(pBuf, bit_offset, weight_bits[index_mode] - ((!i) ? 1 : 0));
 
@@ -324,11 +349,11 @@ bool unpack_bc7_mode6(const void *pBlock_bits, color_rgba *pPixels)
 	{
 		const uint32_t w = g_bc7_weights4[i];
 		const uint32_t iw = 64 - w;
-		vals[i].set_noclamp_rgba( 
-			(r0 * iw + r1 * w + 32) >> 6, 
-			(g0 * iw + g1 * w + 32) >> 6, 
-			(b0 * iw + b1 * w + 32) >> 6, 
-			(a0 * iw + a1 * w + 32) >> 6);
+		color_rgba& c = vals[i];
+		c.r = (r0 * iw + r1 * w + 32) >> 6;
+		c.g = (g0 * iw + g1 * w + 32) >> 6;
+		c.b = (b0 * iw + b1 * w + 32) >> 6;
+		c.a = (a0 * iw + a1 * w + 32) >> 6;
 	}
 
 	pPixels[0] = vals[block.m_hi.m_s00];
@@ -340,7 +365,7 @@ bool unpack_bc7_mode6(const void *pBlock_bits, color_rgba *pPixels)
 	pPixels[5] = vals[block.m_hi.m_s11];
 	pPixels[6] = vals[block.m_hi.m_s21];
 	pPixels[7] = vals[block.m_hi.m_s31];
-		
+
 	pPixels[8] = vals[block.m_hi.m_s02];
 	pPixels[9] = vals[block.m_hi.m_s12];
 	pPixels[10] = vals[block.m_hi.m_s22];
@@ -354,8 +379,9 @@ bool unpack_bc7_mode6(const void *pBlock_bits, color_rgba *pPixels)
 	return true;
 }
 
-bool unpack_bc7(const void *pBlock, bc7decomp::color_rgba *pPixels)
+bool unpack_bc7(const void *pBlock, void *pPixels_)
 {
+	color_rgba* pPixels = static_cast<color_rgba*>(pPixels_);
 	const uint32_t first_byte = static_cast<const uint8_t*>(pBlock)[0];
 
 	for (uint32_t mode = 0; mode <= 7; mode++)
@@ -428,4 +454,3 @@ ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ------------------------------------------------------------------------------
 */
-
