@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(BUILD_X64 "build 64-bit" ON)
 option(SUPPORT_BC7E "support BC7E (requires ispc)" OFF)
 option(CLI "enable build of CLI" ON)
 
@@ -15,23 +14,15 @@ set(SIMD "sse2;sse4;avx;avx2" CACHE STRING "ispc SIMD target")
 set(BC7ENC_TARGET_CLI "bc7enc")
 set(BC7ENC_TARGET_STATIC "bc7enc-static")
 
-message("Initial BUILD_X64=${BUILD_X64}")
 message("Initial SIMD=${SIMD}")
 message("Initial CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 message("Initial SUPPORT_BC7E=${SUPPORT_BC7E}")
 
 if(NOT CMAKE_BUILD_TYPE)
-  	set(CMAKE_BUILD_TYPE Release)
+	set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(ARCH "x64")
-if(NOT BUILD_X64)
-	set(ARCH "x86")
-endif()
-
-message("${PROJECT_NAME} build type: ${CMAKE_BUILD_TYPE}")
-message("target architecture: ${ARCH}")
-message("simd: ${SIMD}")
+message(STATUS "${PROJECT_NAME} (build type: ${CMAKE_BUILD_TYPE}) (simd: ${SIMD})")
 
 if(SUPPORT_BC7E)
 	if(NOT MSVC)
@@ -70,9 +61,6 @@ endif()
 # -fno-strict-aliasing shouldn't be necessary, it's here because that is what MSVC uses by default and that's what I've tested with the most.
 if(NOT MSVC)
 	set(GCC_COMPILE_FLAGS "-fno-strict-aliasing -Wall -Wextra")
-	if(NOT BUILD_X64)
-		set(GCC_COMPILE_FLAGS "${GCC_COMPILE_FLAGS} -m32")
-	endif()
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COMPILE_FLAGS}")
